@@ -361,3 +361,27 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+## Visual Studio & Cache
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Build Output & Binaries
+[Bb]in/
+[Oo]bj/
+x64/
+Debug/
+Release/
+*.dll
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.lib
+*.exp
+*.log
+*.tlog
+*.lastbuildstate
