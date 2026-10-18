@@ -1,0 +1,8 @@
+﻿LIBRARY MorseCore
+EXPORTS
+    Morse_EncodeChar
+    Morse_EncodeString
+    Morse_DecodeChar
+    Morse_QuantizePress
+    Morse_EvaluateGap
+    Morse_GetBenchmarkCycles
