@@ -2,67 +2,80 @@
 ALIGN 16
 PUBLIC MorseAsciiTable
 PUBLIC DichotomicMorseTable
-; Format per entry:
-; Low Byte (AL)  = Element Count (1..6)
-; High Byte (AH) = Bitmask (0 = Dit, 1 = Dah)
+; Format per entry: DB Count, Pattern (0=Dit, 1=Dah, MSB-first)
 MorseAsciiTable LABEL WORD
-    WORD 32 DUP(0)                      ; 0x00 - 0x1F Control
-    WORD 0, 0, 0, 0, 0, 0, 0, 0         ; 0x20 - 0x27
-    WORD 0, 0, 0, 0                     ; 0x28 - 0x2B
-    WORD 0633h                          ; ',' = --..-- (Len 6, 0x33)
-    WORD 0                              ; '-'
-    WORD 0615h                          ; '.' = .-.-.- (Len 6, 0x15)
-    WORD 0                              ; '/'
-    WORD 051Fh                          ; '0' = ----- (Len 5, 0x1F)
-    WORD 051Eh                          ; '1' = .---- (Len 5, 0x1E)
-    WORD 051Ch                          ; '2' = ..--- (Len 5, 0x1C)
-    WORD 0518h                          ; '3' = ...-- (Len 5, 0x18)
-    WORD 0510h                          ; '4' = ....- (Len 5, 0x10)
-    WORD 0500h                          ; '5' = ..... (Len 5, 0x00)
-    WORD 0501h                          ; '6' = -.... (Len 5, 0x01)
-    WORD 0503h                          ; '7' = --... (Len 5, 0x03)
-    WORD 0507h                          ; '8' = ---.. (Len 5, 0x07)
-    WORD 050Fh                          ; '9' = ----. (Len 5, 0x0F)
-    WORD 0, 0, 0, 0, 0                  ; 0x3A - 0x3E
-    WORD 060Ch                          ; '?' = ..--.. (Len 6, 0x0C)
-    WORD 0                              ; '@'
-    WORD 0202h                          ; 'A' = .-    (Len 2, 0x02)
-    WORD 0401h                          ; 'B' = -...  (Len 4, 0x01)
-    WORD 0405h                          ; 'C' = -.-.  (Len 4, 0x05)
-    WORD 0301h                          ; 'D' = -..   (Len 3, 0x01)
-    WORD 0100h                          ; 'E' = .     (Len 1, 0x00)
-    WORD 0404h                          ; 'F' = ..-.  (Len 4, 0x04)
-    WORD 0303h                          ; 'G' = --.   (Len 3, 0x03)
-    WORD 0400h                          ; 'H' = ....  (Len 4, 0x00)
-    WORD 0200h                          ; 'I' = ..    (Len 2, 0x00)
-    WORD 040Eh                          ; 'J' = .---  (Len 4, 0x0E)
-    WORD 0305h                          ; 'K' = -.-   (Len 3, 0x05)
-    WORD 0402h                          ; 'L' = .-..  (Len 4, 0x02)
-    WORD 0203h                          ; 'M' = --    (Len 2, 0x03)
-    WORD 0201h                          ; 'N' = -.    (Len 2, 0x01)
-    WORD 0307h                          ; 'O' = ---   (Len 3, 0x07)
-    WORD 0406h                          ; 'P' = .--.  (Len 4, 0x06)
-    WORD 040Bh                          ; 'Q' = --.-  (Len 4, 0x0B)
-    WORD 0302h                          ; 'R' = .-.   (Len 3, 0x02)
-    WORD 0300h                          ; 'S' = ...   (Len 3, 0x00)
-    WORD 0101h                          ; 'T' = -     (Len 1, 0x01)
-    WORD 0304h                          ; 'U' = ..-   (Len 3, 0x04)
-    WORD 0408h                          ; 'V' = ...-  (Len 4, 0x08)
-    WORD 0306h                          ; 'W' = .--   (Len 3, 0x06)
-    WORD 0409h                          ; 'X' = -..-  (Len 4, 0x09)
-    WORD 040Dh                          ; 'Y' = -.--  (Len 4, 0x0D)
-    WORD 0403h                          ; 'Z' = --..  (Len 4, 0x03)
-    WORD 37 DUP(0)                      ; 0x5B - 0x7F
-; Flattened Dichotomic Morse Tree (O(1) Reverse Decoder)
+    ; 0x00 - 0x1F Control Characters (32 entries = 64 bytes)
+    DB 64 DUP(0)
+    ; 0x20 - 0x2B
+    DB 0, 0                     ; ' ' (Space)
+    DB 0, 0, 0, 0, 0, 0         ; '!' '"' '#'
+    DB 0, 0, 0, 0, 0, 0, 0, 0   ; '$' '%' '&' '\''
+    DB 0, 0, 0, 0, 0, 0, 0, 0   ; '(' ')' '*' '+'
+    DB 6, 33h                   ; 0x2C: ',' = --..-- (110011b = 0x33)
+    DB 0, 0                     ; 0x2D: '-'
+    DB 6, 15h                   ; 0x2E: '.' = .-.-.- (010101b = 0x15)
+    DB 0, 0                     ; 0x2F: '/'
+    ; 0x30 - 0x39 (Digits '0' - '9')
+    DB 5, 1Fh                   ; '0' = ----- (11111b = 0x1F)
+    DB 5, 0Fh                   ; '1' = .---- (01111b = 0x0F)
+    DB 5, 07h                   ; '2' = ..--- (00111b = 0x07)
+    DB 5, 03h                   ; '3' = ...-- (00011b = 0x03)
+    DB 5, 01h                   ; '4' = ....- (00001b = 0x01)
+    DB 5, 00h                   ; '5' = ..... (00000b = 0x00)
+    DB 5, 10h                   ; '6' = -.... (10000b = 0x10)
+    DB 5, 18h                   ; '7' = --... (11000b = 0x18)
+    DB 5, 1Ch                   ; '8' = ---.. (11100b = 0x1C)
+    DB 5, 1Eh                   ; '9' = ----. (11110b = 0x1E)
+    ; 0x3A - 0x40
+    DB 0, 0, 0, 0, 0, 0, 0, 0   ; ':' ';' '<' '='
+    DB 0, 0                     ; '>'
+    DB 6, 0Ch                   ; 0x3F: '?' = ..--.. (001100b = 0x0C)
+    DB 0, 0                     ; 0x40: '@'
+    ; 0x41 - 0x5A (Uppercase Letters 'A' - 'Z')
+    DB 2, 01h                   ; 'A' = .-    (01b)
+    DB 4, 08h                   ; 'B' = -...  (1000b)
+    DB 4, 0Ah                   ; 'C' = -.-.  (1010b)
+    DB 3, 04h                   ; 'D' = -..   (100b)
+    DB 1, 00h                   ; 'E' = .     (0b)
+    DB 4, 02h                   ; 'F' = ..-.  (0010b)
+    DB 3, 06h                   ; 'G' = --.   (110b)
+    DB 4, 00h                   ; 'H' = ....  (0000b)
+    DB 2, 00h                   ; 'I' = ..    (00b)
+    DB 4, 07h                   ; 'J' = .---  (0111b)
+    DB 3, 05h                   ; 'K' = -.-   (101b)
+    DB 4, 04h                   ; 'L' = .-..  (0100b)
+    DB 2, 03h                   ; 'M' = --    (11b)
+    DB 2, 02h                   ; 'N' = -.    (10b)
+    DB 3, 07h                   ; 'O' = ---   (111b)
+    DB 4, 06h                   ; 'P' = .--.  (0110b)
+    DB 4, 0Dh                   ; 'Q' = --.-  (1101b)
+    DB 3, 02h                   ; 'R' = .-.   (010b)
+    DB 3, 00h                   ; 'S' = ...   (000b)
+    DB 1, 01h                   ; 'T' = -     (1b)
+    DB 3, 01h                   ; 'U' = ..-   (001b)
+    DB 4, 01h                   ; 'V' = ...-  (0001b)
+    DB 3, 03h                   ; 'W' = .--   (011b)
+    DB 4, 09h                   ; 'X' = -..-  (1001b)
+    DB 4, 0Bh                   ; 'Y' = -.--  (1011b)
+    DB 4, 0Ch                   ; 'Z' = --..  (1100b)
+    ; Remainder of ASCII 128
+    DB 74 DUP(0)
+; Flattened Dichotomic Morse Tree (Index = (1 << Count) - 2 + Pattern)
 DichotomicMorseTable LABEL BYTE
-    DB 'E', 'T'                                 ; Count = 1
-    DB 'I', 'A', 'N', 'M'                       ; Count = 2
-    DB 'S', 'U', 'R', 'W', 'D', 'K', 'G', 'O'   ; Count = 3
-    DB 'H', 'V', 'F', 0, 'L', 0, 'P', 'J'       ; Count = 4
+    ; Count = 1 (Indices 0..1: E, T)
+    DB 'E', 'T'
+    ; Count = 2 (Indices 2..5: I, A, N, M)
+    DB 'I', 'A', 'N', 'M'
+    ; Count = 3 (Indices 6..13: S, U, R, W, D, K, G, O)
+    DB 'S', 'U', 'R', 'W', 'D', 'K', 'G', 'O'
+    ; Count = 4 (Indices 14..29)
+    DB 'H', 'V', 'F', 0, 'L', 0, 'P', 'J'
     DB 'B', 'X', 'C', 'Y', 'Z', 'Q', 0, 0
-    DB '5', '4', 0, '3', 0, 0, 0, '2'           ; Count = 5
+    ; Count = 5 (Indices 30..61) - Digits 5, 4, 3, 2, 1, 6, 7, 8, 9, 0
+    DB '5', '4', 0, '3', 0, 0, 0, '2'
     DB 0, 0, 0, 0, 0, 0, 0, '1'
     DB '6', 0, 0, 0, 0, 0, 0, 0
     DB '7', 0, 0, 0, '8', 0, '9', '0'
-    DB 64 DUP(0)                                ; Reserved Count = 6
+    ; Reserved for Count = 6
+    DB 64 DUP(0)
 END
