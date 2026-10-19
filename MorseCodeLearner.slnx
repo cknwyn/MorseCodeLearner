@@ -1,4 +1,4 @@
-<Solution>
+﻿<Solution>
   <Configurations>
     <Platform Name="x64" />
     <Platform Name="x86" />
@@ -6,5 +6,7 @@
   <Project Path="src/MorseApp/MorseApp.csproj">
     <Platform Project="x64" />
   </Project>
-  <Project Path="src/MorseCore/MorseCore/MorseCore.vcxproj" />
+  <Project Path="src/MorseCore.Tests/MorseCore.Tests.csproj">
+    <Platform Project="x64" />
+  </Project>
 </Solution>

@@ -460,7 +460,7 @@
                                     <DockPanel>
                                         <TextBlock Text="DECODED STREAM" DockPanel.Dock="Top" Style="{StaticResource Eyebrow}" Margin="0,0,0,10" />
                                         <Grid>
-                                            <TextBlock x:Name="SandboxHint" Text="Press and release SPACE to start transmitting. Pause for a second to add a word space."
+                                            <TextBlock x:Name="SandboxHint" Text="Press and release SPACE to start transmitting. Pause for about six units (roughly half a second at 15 WPM) to add a word space."
                                                        FontFamily="{StaticResource Display}" FontSize="20" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" IsHitTestVisible="False" Opacity="0.8" />
                                             <TextBox x:Name="SandboxStreamBox" Text="" TextChanged="OnSandboxTextChanged" FontSize="32" FontFamily="{StaticResource Mono}" FontWeight="SemiBold"
                                                      Foreground="{DynamicResource Accent}" CaretBrush="{DynamicResource Accent}"
