@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 namespace MorseApp.Native
 {
@@ -27,7 +27,7 @@ namespace MorseApp.Native
             char[] chars = new char[Count];
             for (int i = 0; i < Count; i++)
             {
-                chars[i] = ((Pattern >> i) & 1) == 1 ? '-' : '.';
+                chars[i] = ((Pattern >> (Count - 1 - i)) & 1) == 1 ? '-' : '.';
             }
             return new string(chars);
         }

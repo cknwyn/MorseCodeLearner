@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -15,4 +15,7 @@
       <Link>MorseCore.dll</Link>
     </None>
   </ItemGroup>
+  <Target Name="BuildNativeCore" BeforeTargets="BeforeBuild">
+    <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\MorseCore\build-native.ps1&quot; -Configuration $(Configuration)" />
+  </Target>
 </Project>
