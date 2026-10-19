@@ -17,7 +17,7 @@ The application adopts a decoupled hybrid architecture:
 
 1. Learning Drills: Practice character recognition (A-Z, 0-9) with phonetic mnemonics, real-time feedback, and streak tracking.
 2. Sentence Challenge: Interactive phrase transcription with visual character progression and automated pause-to-space detection.
-3. Freeform Sandbox: Open telegraph dictation with live 700 Hz sidetone audio synthesis and clipboard export.
+3. Freeform Sandbox: Open telegraph dictation with live PCM audio synthesis, user-adjustable frequency (300-1500 Hz), and clipboard export.
 
 ## Prerequisites
 
