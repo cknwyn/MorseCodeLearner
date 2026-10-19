@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -38,9 +38,16 @@ namespace MorseApp
                 }
                 return IntPtr.Zero;
             });
-            var app = new Application();
-            var mainWindow = new MainWindow();
-            app.Run(mainWindow);
+            try
+            {
+                var app = new Application();
+                var mainWindow = new MainWindow();
+                app.Run(mainWindow);
+            }
+            catch (Exception ex)
+            {
+                File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash.log"), ex.ToString());
+            }
         }
     }
 }

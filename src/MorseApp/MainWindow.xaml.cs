@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -27,6 +27,8 @@ namespace MorseApp
         private static extern uint Morse_QuantizePress(ulong durationUs, ulong unitUs);
         [DllImport("MorseCore.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern uint Morse_EvaluateGap(ulong gapUs, ulong unitUs);
+        [DllImport("MorseCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern ulong Morse_GetBenchmarkCycles();
         // State Machine
         private ActiveMode _currentMode = ActiveMode.Learning;
         private int _wpm = 15;
@@ -176,8 +178,12 @@ namespace MorseApp
                     SignalStatusText.Foreground = TextDim;
                     ulong durationUs = (ulong)(_pressTimer.Elapsed.TotalMilliseconds * 1000);
                     DurationMetric.Text = $"{_pressTimer.ElapsedMilliseconds} ms";
-                    // Native MASM quantizer call
+                    // Native MASM quantizer call with RDTSC cycle telemetry
+                    ulong startCycles = Morse_GetBenchmarkCycles();
                     uint token = Morse_QuantizePress(durationUs, _unitUs);
+                    ulong elapsedCycles = Morse_GetBenchmarkCycles() - startCycles;
+                    LatencyMetric.Text = $"{elapsedCycles} cycles";
+
                     if (token == 1) // Dit (0)
                     {
                         TokenMetric.Text = "DIT (•)";
@@ -201,9 +207,11 @@ namespace MorseApp
         private void OnGapTick(object? sender, EventArgs e)
         {
             if (_isKeyPressed) return;
-            long idleMs = _idleTimer.ElapsedMilliseconds;
-            // Phase 1: Inter-Character Gap Evaluation (Commit Letter when idle > 300ms)
-            if (_elementCount > 0 && idleMs >= 300)
+            ulong idleUs = (ulong)(_idleTimer.Elapsed.TotalMilliseconds * 1000);
+            uint gapAction = Morse_EvaluateGap(idleUs, _unitUs);
+
+            // Phase 1: Inter-Character Gap (Commit Character)
+            if (_elementCount > 0 && (gapAction == 1 || gapAction == 2))
             {
                 byte decodedAscii = Morse_DecodeChar(_elementCount, _patternMask);
                 char decoded = (char)decodedAscii;
@@ -214,10 +222,9 @@ namespace MorseApp
                 _elementCount = 0;
                 _patternMask = 0;
                 CurrentTokenBuffer.Text = string.Empty;
-                // Note: Keep _idleTimer running to evaluate word space gap!
             }
-            // Phase 2: Word Space Gap Evaluation (Wait 1 second = 1000ms)
-            if (_elementCount == 0 && idleMs >= 1000 && !_spaceCommittedForPause)
+            // Phase 2: Word Space Gap (Commit Space)
+            if (_elementCount == 0 && gapAction == 2 && !_spaceCommittedForPause)
             {
                 _spaceCommittedForPause = true; // Prevents repeating spaces
                 DispatchSpace();
