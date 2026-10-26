@@ -1,4 +1,4 @@
-# CONTEXT.md — MorseCodeLearner Architecture & System Context
+# CONTEXT.md — Morseling (repo: MorseCodeLearner) Architecture & System Context
 
 ## 1. Project Overview & Problem Statement
 

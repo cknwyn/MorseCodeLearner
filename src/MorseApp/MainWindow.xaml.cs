@@ -885,7 +885,7 @@ namespace MorseApp
         // Endless dit/dah ticker spelling the app name, drawn from real shapes so the loop is seamless.
         private void BuildTicker()
         {
-            const string msg = "MORSE CODE LEARNER";
+            const string msg = "MORSELING";
             const double dit = 6, dah = 20, sym = 6, letter = 16, word = 34;
             var cycle = new List<FrameworkElement>();
             double width = 0;

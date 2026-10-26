@@ -1,4 +1,6 @@
-# MorseCodeLearner
+# Morseling
+
+(Repository and solution name: MorseCodeLearner.)
 
 An Assembly-accelerated Morse code assistive and pedagogical desktop platform built with .NET 8 WPF and MASM x64.
 

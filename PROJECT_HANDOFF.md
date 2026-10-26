@@ -1,6 +1,6 @@
 # PROJECT_HANDOFF.md — Collaborator Onboarding & Handoff Guide
 
-Welcome to the **MorseCodeLearner** project repository! This guide is designed to get new developers, researchers, and contributors up to speed immediately.
+Welcome to the **Morseling** project repository (the product was renamed from "Morse Code Learner"; the repo, solution and `MorseApp` namespace keep their original names)! This guide is designed to get new developers, researchers, and contributors up to speed immediately.
 
 ---
 

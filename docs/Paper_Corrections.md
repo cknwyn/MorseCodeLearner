@@ -16,6 +16,7 @@ Statements in the submitted text that no longer match the code, with the wording
 | 10 | "Configurable font scaling, high-contrast modes" | Not implemented. The app has light/dark themes, redundant audio + visual cues and a live key scope; contrast was hand-estimated (>= 4.5:1), not audited | Describe the implemented features; list font scaling, a high-contrast theme and screen-reader names as future work. |
 | 11 | "Tracking accuracy and timing consistency" | Accuracy and streaks are tracked; timing is shown live (key scope, hold readout) but not recorded | "Accuracy tracking with live timing feedback; session timing logs are future work." |
 | 12 | Modules: Level 1 characters, Level 2 words/phrases | Also Mode 3 Sandbox and Mode 4 Ear Training (10-lesson study path, mastery model) | Add the two modes. |
+| 14 | Product name "Morse Code Learner" | The product is now **Morseling** (window title, wordmark, README). Repo/solution/namespace names are unchanged | Use "Morseling" in the paper; mention the former working title once if needed. |
 | 13 | Architecture diagram labels | Layering is `MainWindow` -> `MorseEngineService` -> `NativeMethods` -> `MorseCore.dll`; audio box = `PcmAudioEngine`; add Key Scope and Ear Training | Redraw labels to match (see `CONTEXT.md` section 2). |
 
 ## Chapter 3 checklist
