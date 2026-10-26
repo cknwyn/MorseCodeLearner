@@ -11,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using MorseApp.Audio;
+using MorseApp.Services;
 namespace MorseApp
 {
     public enum ActiveMode
@@ -22,16 +23,6 @@ namespace MorseApp
     }
     public partial class MainWindow : Window
     {
-        [DllImport("MorseCore.dll", CallingConvention = CallingConvention.Cdecl)]
-        private static extern ushort Morse_EncodeChar(uint asciiChar);
-        [DllImport("MorseCore.dll", CallingConvention = CallingConvention.Cdecl)]
-        private static extern byte Morse_DecodeChar(byte count, byte pattern);
-        [DllImport("MorseCore.dll", CallingConvention = CallingConvention.Cdecl)]
-        private static extern uint Morse_QuantizePress(ulong durationUs, ulong unitUs);
-        [DllImport("MorseCore.dll", CallingConvention = CallingConvention.Cdecl)]
-        private static extern uint Morse_EvaluateGap(ulong gapUs, ulong unitUs);
-        [DllImport("MorseCore.dll", CallingConvention = CallingConvention.Cdecl)]
-        private static extern ulong Morse_GetBenchmarkCycles();
         [DllImport("winmm.dll")] private static extern uint timeBeginPeriod(uint ms);
         [DllImport("winmm.dll")] private static extern uint timeEndPeriod(uint ms);
         // Native PCM Audio Engine
@@ -39,7 +30,7 @@ namespace MorseApp
         // State Machine
         private ActiveMode _currentMode = ActiveMode.Learning;
         private int _wpm = 15;
-        private ulong _unitUs => (ulong)(1200000 / _wpm);
+        private ulong _unitUs => MorseEngineService.UnitUs(_wpm);
         // Hardware Switch Timers
         private readonly Stopwatch _pressTimer = new();
         private readonly Stopwatch _idleTimer = new();
@@ -68,7 +59,7 @@ namespace MorseApp
             BuildSentenceUI();
             _activeTab = TabLearningBtn;
             timeBeginPeriod(1);
-            KeyScope.LiveClassifier = ms => (int)Morse_QuantizePress((ulong)(ms * 1000), _unitUs);
+            KeyScope.LiveClassifier = ms => (int)MorseEngineService.QuantizePressUs((ulong)(ms * 1000), _unitUs);
             UpdateScopeUnit();
             LoadProgress();
             ConfigureScope();
@@ -634,7 +625,7 @@ namespace MorseApp
                     if (!PreciseDelay(startDelayMs, ct)) return;
                     for (int k = 0; k < chars.Length; k++)
                     {
-                        ushort packed = Morse_EncodeChar((uint)chars[k]);
+                        ushort packed = MorseEngineService.EncodePacked(chars[k]);
                         int count = packed & 0xFF;
                         byte pattern = (byte)((packed >> 8) & 0xFF);
                         for (int i = count - 1; i >= 0; i--)
@@ -681,7 +672,7 @@ namespace MorseApp
         private string MorseOf(char c)
         {
             if (c == ' ') return "/";
-            ushort packed = Morse_EncodeChar((uint)c);
+            ushort packed = MorseEngineService.EncodePacked(c);
             int count = packed & 0xFF;
             byte pattern = (byte)((packed >> 8) & 0xFF);
             var parts = new List<string>();
@@ -894,7 +885,7 @@ namespace MorseApp
         // Endless dit/dah ticker spelling the app name, drawn from real shapes so the loop is seamless.
         private void BuildTicker()
         {
-            const string msg = "MORSE CODE LEARNER";
+            const string msg = "MORSELING";
             const double dit = 6, dah = 20, sym = 6, letter = 16, word = 34;
             var cycle = new List<FrameworkElement>();
             double width = 0;
@@ -902,7 +893,7 @@ namespace MorseApp
             foreach (char c in msg)
             {
                 if (c == ' ') { Add(new Border { Width = word }, word); continue; }
-                ushort packed = Morse_EncodeChar((uint)c);
+                ushort packed = MorseEngineService.EncodePacked(c);
                 int count = packed & 0xFF; byte pattern = (byte)((packed >> 8) & 0xFF);
                 for (int i = count - 1; i >= 0; i--)
                 {
@@ -1066,9 +1057,9 @@ namespace MorseApp
                     ulong durationUs = (ulong)(_pressTimer.Elapsed.TotalMilliseconds * 1000);
                     DurationMetric.Text = $"{_pressTimer.ElapsedMilliseconds} ms";
                     // Native MASM quantizer call with RDTSC cycle telemetry
-                    ulong startCycles = Morse_GetBenchmarkCycles();
-                    uint token = Morse_QuantizePress(durationUs, _unitUs);
-                    ulong elapsedCycles = Morse_GetBenchmarkCycles() - startCycles;
+                    ulong startCycles = MorseEngineService.GetCycles();
+                    uint token = MorseEngineService.QuantizePressUs(durationUs, _unitUs);
+                    ulong elapsedCycles = MorseEngineService.GetCycles() - startCycles;
                     LatencyMetric.Text = $"{elapsedCycles} cycles";
                     KeyScope.End((int)token);
                     KeyReadout.Text = $"LAST {_pressTimer.ElapsedMilliseconds} ms  \u2192  {TokenName((int)token)}   \u00B7   1 unit = {_unitUs / 1000.0:0} ms";
@@ -1098,17 +1089,17 @@ namespace MorseApp
             if (_isKeyPressed)
             {
                 double held = _pressTimer.Elapsed.TotalMilliseconds;
-                int liveKind = (int)Morse_QuantizePress((ulong)(held * 1000), _unitUs);
+                int liveKind = (int)MorseEngineService.QuantizePressUs((ulong)(held * 1000), _unitUs);
                 KeyReadout.Text = $"HOLD {held:0} ms  \u2192  {TokenName(liveKind)}";
                 return;
             }
             ulong idleUs = (ulong)(_idleTimer.Elapsed.TotalMilliseconds * 1000);
-            uint gapAction = Morse_EvaluateGap(idleUs, _unitUs);
+            uint gapAction = MorseEngineService.EvaluateGapUs(idleUs, _unitUs);
 
             // Phase 1: Inter-Character Gap (Commit Character)
             if (_elementCount > 0 && (gapAction == 1 || gapAction == 2))
             {
-                byte decodedAscii = Morse_DecodeChar(_elementCount, _patternMask);
+                byte decodedAscii = MorseEngineService.DecodeRaw(_elementCount, _patternMask);
                 char decoded = (char)decodedAscii;
                 if (decoded != '\0')
                 {
@@ -1176,7 +1167,7 @@ namespace MorseApp
             char target = _alphabet[_learnIndex];
             LearnTargetChar.Text = target.ToString();
             // Encode using native MASM
-            ushort packed = Morse_EncodeChar((uint)target);
+            ushort packed = MorseEngineService.EncodePacked(target);
             byte count = (byte)(packed & 0xFF);
             byte pattern = (byte)((packed >> 8) & 0xFF);
             string morseStr = "";
@@ -1302,12 +1293,12 @@ namespace MorseApp
                 if (active == ' ')
                 {
                     SentenceActiveChar.Text = "[SPACE]";
-                    SentenceActiveMorse.Text = "pause 1 second";
+                    SentenceActiveMorse.Text = $"pause {_unitUs * 6 / 1000.0:0} ms (6 units)";
                 }
                 else
                 {
                     SentenceActiveChar.Text = active.ToString();
-                    ushort packed = Morse_EncodeChar((uint)active);
+                    ushort packed = MorseEngineService.EncodePacked(active);
                     byte count = (byte)(packed & 0xFF);
                     byte pattern = (byte)((packed >> 8) & 0xFF);
                     string m = "";
@@ -1389,7 +1380,7 @@ namespace MorseApp
                         System.Threading.Thread.Sleep(unitMs * 7);
                         continue;
                     }
-                    ushort packed = Morse_EncodeChar((uint)c);
+                    ushort packed = MorseEngineService.EncodePacked(c);
                     byte count = (byte)(packed & 0xFF);
                     byte pattern = (byte)((packed >> 8) & 0xFF);
                     for (int i = count - 1; i >= 0; i--)

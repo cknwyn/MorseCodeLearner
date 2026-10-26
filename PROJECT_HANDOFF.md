@@ -1,6 +1,6 @@
 # PROJECT_HANDOFF.md — Collaborator Onboarding & Handoff Guide
 
-Welcome to the **MorseCodeLearner** project repository! This guide is designed to get new developers, researchers, and contributors up to speed immediately.
+Welcome to the **Morseling** project repository (the product was renamed from "Morse Code Learner"; the repo, solution and `MorseApp` namespace keep their original names)! This guide is designed to get new developers, researchers, and contributors up to speed immediately.
 
 ---
 
@@ -16,7 +16,7 @@ Welcome to the **MorseCodeLearner** project repository! This guide is designed t
 1. Open **`MorseCodeLearner.sln`** in Visual Studio 2022.
 2. Ensure the top toolbar platform configuration is set to **`x64`** (do not use `Win32` or `Any CPU`).
 3. Press **`Ctrl + Shift + B`** (Rebuild Solution).
-   * Visual Studio invokes `ml64.exe` to assemble the native assembly files into `MorseCore.dll`.
+   * `MorseApp.csproj` runs `src/MorseCore/build-native.ps1` first, which calls `ml64.exe` on the `.asm` files and `link.exe` (`/DLL /NOENTRY /NODEFAULTLIB /DEF:MorseCore.def`) to produce `MorseCore.dll`. There is no C/C++ project in the solution; the native core is pure MASM.
    * It then compiles the C# presentation layer into `MorseApp.exe`.
 4. Right-click **`MorseApp`** in Solution Explorer and ensure it is selected as the **Startup Project**.
 5. Press **F5** to run the live application.
@@ -38,7 +38,8 @@ Command-line build (used while developing the UI): `dotnet build src/MorseApp/Mo
 | **Live Key Scope** | **NEW** | Scrolling logic-analyser trace of the key line in the bottom console, visible in every mode. See §4. |
 | **Light / Dark theme** | **NEW** | Light is the default; a rail button switches to dark with an animated colour fade. See §5. |
 | **Collapsible sidebar + responsive layout** | **NEW** | Left rail collapses to icons; panels reflow for narrow and short windows. See §6. |
-| **1-Second Space Detection** | **COMPLETE** | Pausing for 1.0 second automatically commits word spaces (`␣`) without requiring special keys. |
+| **Automatic Space Detection** | **COMPLETE** | Unit-relative gaps evaluated by `Morse_EvaluateGap`: idle ≥ 2.5T commits the character, ≥ 6T commits a word space (≈ 200 ms / 480 ms at 15 WPM, 600 ms / 1440 ms at 5 WPM). |
+| **Automated tests** | **NEW** | `src/MorseCore.Tests` (xUnit): 110 cases against the real DLL; table in `docs/Chapter3_TestCases.md`. Run `dotnet test src/MorseCore.Tests/MorseCore.Tests.csproj -p:Platform=x64`. |
 | **Settings & Telemetry** | **COMPLETE** | Live WPM adjustment (5–30 WPM), sidetone 300–1500 Hz, and toggleable hardware latency stats. Controls moved from the header to the top bar above the workspace. |
 
 ---
@@ -158,6 +159,10 @@ Command-line build (used while developing the UI): `dotnet build src/MorseApp/Mo
 | :--- | :--- |
 | `src/MorseApp/MainWindow.xaml` | Entire UI: theme resources, styles (`KeyBtn`, `SignalBtn`, `NavBtn`, `StepBtn`, `Card`, `Eyebrow`, `H1`), rail, top bar, four mode panels, key console. |
 | `src/MorseApp/MainWindow.xaml.cs` | Window logic. Regions: *Key scope helpers*, *Mode 4: Ear Training*, *Filler content* (alphabet chips, quick reference, full-morse line), *Theme, Rail, Responsive Layout*, *Navigation & Settings*, *Hardware Key Event Processing*, one region per mode. |
+| `src/MorseApp/Native/NativeMethods.cs` | The only `[DllImport("MorseCore.dll")]` declarations (Cdecl). Names must match `src/MorseCore/MorseCore.def`. |
+| `src/MorseApp/Services/MorseEngineService.cs` | Managed gateway used by `MainWindow`: `UnitUs(wpm)`, `EncodePacked`, `DecodeRaw`, `QuantizePressUs`, `EvaluateGapUs`, `GetCycles`. **Do not add timing thresholds here or in the UI; classification stays in the MASM core.** |
+| `src/MorseCore/core/*.asm`, `tables/lookup_tables.asm` | MASM sources (inline-commented). `dllmain.asm` is a stub because the DLL is linked `/NOENTRY`. |
+| `src/MorseCore.Tests/` | xUnit tests calling the real DLL; `MORSE_TEST_REPORT=<file>` regenerates the results table. |
 | `src/MorseApp/Controls/KeyScope.cs` | Live key scope control (§4). |
 | `src/MorseApp/Audio/PcmAudioEngine.cs` | winmm `waveOut` looping sine sidetone with `StartTone()` / `StopTone()` and adjustable frequency (300–1500 Hz). |
 | `%AppData%\MorseCodeLearner\ear-progress.json` | Saved Ear Training mastery (created at runtime). |
@@ -198,4 +203,4 @@ If you are collaborating on the next phase of development, here are the priority
    * Add a high-contrast theme, a UI scale option, and screen-reader names for the generated chips/cards (the audience includes users with impairments).
 
 6. **Academic Thesis Alignment**:
-   * Refer to `docs/Chapter3_Draft.md` to update implementation diagrams and timing tables for documentation submissions.
+   * Use `docs/Chapter3_TestCases.md` (generated verification table) and the layering in `CONTEXT.md` §7 to update diagrams and timing tables. `docs/Paper_Corrections.md` lists the Chapter 2 statements that must be reworded to match the code.

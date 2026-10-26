@@ -1,4 +1,4 @@
-# CONTEXT.md — MorseCodeLearner Architecture & System Context
+# CONTEXT.md — Morseling (repo: MorseCodeLearner) Architecture & System Context
 
 ## 1. Project Overview & Problem Statement
 
@@ -48,7 +48,7 @@ flowchart TD
     end
 
     Switch -->|Raw Physical Keypress| InputHandler
-    InputHandler -->|P/Invoke Fastcall ABI| NativeCore
+    InputHandler -->|MorseEngineService / NativeMethods P/Invoke, Microsoft x64 ABI| NativeCore
     NativeCore --> Lookup
     NativeCore --> Decoder
     NativeCore --> Quantizer
@@ -105,8 +105,9 @@ Given the base unit duration $T$ in microseconds ($T = 1,200,000 / \text{WPM} \ 
 - **Dit Classification**: $0.25\, T \le \Delta t < 2.0\, T$ (Token = 1).
 - **Dah Classification**: $2.0\, T \le \Delta t < 6.0\, T$ (Token = 2).
 - **Over-extended Threshold**: $\Delta t \ge 6.0\, T$ (Rejected as accidental hold).
-- **Inter-Character Gap**: Idle time $\ge 300\text{ ms}$ triggers character commit.
-- **Word Space Gap**: Idle time $\ge 1000\text{ ms}$ (1 second pause) triggers automatic space insertion.
+- **Inter-Character Gap** (`Morse_EvaluateGap`): idle time $\ge 2.5\,T$ triggers character commit.
+- **Word Space Gap**: idle time $\ge 6\,T$ triggers automatic space insertion.
+- Both gap thresholds are **unit-relative**, so they scale with WPM. At 15 WPM ($T = 80$ ms) they are 200 ms and 480 ms; at 5 WPM ($T = 240$ ms) they are 600 ms and 1440 ms. They sit between the ideal ITU lengths (3T letter gap, 7T word gap) and the next-shorter gap (1T, 3T respectively) to tolerate human timing error. (Earlier drafts of this document quoted fixed 300 ms / 1000 ms values; the assembly has always been unit-relative.)
 
 > The thresholds above describe the intended behaviour of the MASM quantizer. The live key-scope readout ("HOLD 142 ms → DAH", "TOO LONG") displays exactly what `Morse_QuantizePress` returns, so the UI can be used to *observe* these thresholds empirically.
 
@@ -224,7 +225,8 @@ MorseCodeLearner/
 │
 ├── src/
 │   ├── MorseCore/                      # MASM x64 Dynamic Link Library Project
-│   │   ├── MorseCore.vcxproj           # C++ DLL project with MASM build customizations
+│   │   ├── build-native.ps1            # ml64 + link (/DLL /NOENTRY /NODEFAULTLIB); invoked by MorseApp.csproj
+│   │   ├── MorseCore.def               # Exported symbols (the six Morse_* routines)
 │   │   ├── tables/
 │   │   │   └── lookup_tables.asm       # .const segment O(1) ASCII & Dichotomic tables
 │   │   ├── core/
@@ -239,13 +241,21 @@ MorseCodeLearner/
 │   └── MorseApp/                       # C# .NET 8 WPF Accessible Presentation Layer
 │       ├── MorseApp.csproj             # .NET 8 WPF project (x64 target, AllowUnsafeBlocks)
 │       ├── Program.cs                  # Explicit STAThread entry point + Native DllResolver
+│       ├── Native/NativeMethods.cs     # The only [DllImport] declarations for MorseCore.dll
+│       ├── Services/MorseEngineService.cs  # Managed gateway: unit math + thin wrappers over NativeMethods
 │       ├── MainWindow.xaml             # Themed multi-mode UI: rail, top bar, 4 modes, key console
 │       ├── MainWindow.xaml.cs          # Key dispatcher, mode logic, theme, responsiveness, Ear Training
 │       ├── Controls/
 │       │   └── KeyScope.cs             # Live key-line trace control (custom-drawn)
 │       └── Audio/
 │           └── PcmAudioEngine.cs       # winmm waveOut looping sine sidetone
+│
+├── src/MorseCore.Tests/                # xUnit tests that call the real MorseCore.dll via MorseEngineService
+└── docs/
+    └── Chapter3_TestCases.md           # Generated verification table (expected vs. actual) for Chapter 3.4
 ```
+
+Layering (matches the paper's architecture diagram): `MainWindow` (key events, GUI) → `MorseEngineService` → `NativeMethods` (P/Invoke) → `MorseCore.dll` (MASM). `PcmAudioEngine` is the audio output handler.
 
 Runtime data: `%AppData%\MorseCodeLearner\ear-progress.json` (Ear Training mastery levels).
 
@@ -260,4 +270,4 @@ Runtime data: `%AppData%\MorseCodeLearner\ear-progress.json` (Ear Training maste
 - **Latency claims.** "Zero computational latency" in §1.2 refers to the cost of the native routines. The full input-to-feedback path also includes WPF input dispatch, the 20 ms gap-evaluation timer, and rendering; these have not been benchmarked end to end.
 - **Platform.** Windows x64 only (MASM, winmm, WPF).
 - **Persistence scope.** Only Ear Training mastery is saved; Learning-mode "mastered" markers and all scores are per session.
-- **Testing.** The UI was verified by running the application and inspecting screenshots/behaviour in a limited number of window sizes; there is no automated test suite.
+- **Testing.** The UI was verified by running the application and inspecting screenshots/behaviour in a limited number of window sizes; there is no automated UI test suite. The native core and the managed gateway **are** covered by `src/MorseCore.Tests` (110 xUnit cases, results in `docs/Chapter3_TestCases.md`): encoding of all 39 supported characters, decode round-trips, quantizer and gap boundaries at 5/15/30 WPM, and edge cases.

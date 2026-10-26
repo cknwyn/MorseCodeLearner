@@ -7,13 +7,17 @@
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <ApplicationTitle>Morse Code Learner (Assistive x64)</ApplicationTitle>
+    <ApplicationTitle>Morseling (Assistive x64)</ApplicationTitle>
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\MorseCore\bin\x64\$(Configuration)\MorseCore.dll" Condition="Exists('..\MorseCore\bin\x64\$(Configuration)\MorseCore.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>MorseCore.dll</Link>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\morseling-logo.png" />
+    <Resource Include="Assets\morseling-icon.png" />
   </ItemGroup>
   <Target Name="BuildNativeCore" BeforeTargets="BeforeBuild">
     <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\MorseCore\build-native.ps1&quot; -Configuration $(Configuration)" />
