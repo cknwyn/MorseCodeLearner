@@ -5,12 +5,14 @@ using System.Threading;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.IO.Ports;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using MorseApp.Audio;
+using MorseApp.Services;
 namespace MorseApp
 {
     public enum ActiveMode
@@ -36,6 +38,9 @@ namespace MorseApp
         [DllImport("winmm.dll")] private static extern uint timeEndPeriod(uint ms);
         // Native PCM Audio Engine
         private readonly PcmAudioEngine _audioEngine = new(700);
+        private readonly Esp32AssistiveSwitch? _esp32AssistiveSwitch;
+        private readonly string _assistiveSwitchPort;
+        private const string DefaultAssistiveSwitchPort = "COM3";
         // State Machine
         private ActiveMode _currentMode = ActiveMode.Learning;
         private int _wpm = 15;
@@ -58,9 +63,25 @@ namespace MorseApp
         // Mode 2: Sentence Challenge State
         private string _targetSentence = "HELLO WORLD";
         private int _sentenceCharIndex = 0;
+        private static string ResolveAssistiveSwitchPort()
+        {
+            string? envPort = Environment.GetEnvironmentVariable("MORSE_ESP32_PORT");
+            if (!string.IsNullOrWhiteSpace(envPort))
+                return envPort;
+
+            string[] ports = SerialPort.GetPortNames();
+            if (ports.Contains(DefaultAssistiveSwitchPort, StringComparer.OrdinalIgnoreCase))
+                return DefaultAssistiveSwitchPort;
+
+            return ports.Length > 0 ? ports[0] : DefaultAssistiveSwitchPort;
+        }
+
         public MainWindow()
         {
             InitializeComponent();
+            _assistiveSwitchPort = ResolveAssistiveSwitchPort();
+            _esp32AssistiveSwitch = new Esp32AssistiveSwitch(_assistiveSwitchPort);
+            InitializeAssistiveSwitch();
             _gapTimer.Interval = TimeSpan.FromMilliseconds(20);
             _gapTimer.Tick += OnGapTick;
             _gapTimer.Start();
@@ -1011,6 +1032,95 @@ namespace MorseApp
             }
         }
         #endregion
+        private void InitializeAssistiveSwitch()
+        {
+            if (_esp32AssistiveSwitch == null)
+                return;
+
+            try
+            {
+                _esp32AssistiveSwitch.PressChanged += (_, pressed) =>
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (pressed)
+                        {
+                            TriggerSpaceKeyDown();
+                        }
+                        else
+                        {
+                            TriggerSpaceKeyUp();
+                        }
+                    }));
+                };
+
+                _esp32AssistiveSwitch.Open();
+                Debug.WriteLine($"ESP32 assistive switch opened on {_assistiveSwitchPort}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"ESP32 assistive switch connection failed on {_assistiveSwitchPort}: {ex.Message}");
+            }
+        }
+
+        // If the app is not detecting the ESP32, set MORSE_ESP32_PORT to the real COM port before starting the app.
+        // Example: set MORSE_ESP32_PORT=COM5
+
+        private void TriggerSpaceKeyDown()
+        {
+            if (_isKeyPressed)
+                return;
+
+            _isKeyPressed = true;
+            _idleTimer.Stop();
+            _pressTimer.Restart();
+            _spaceCommittedForPause = false; // Reset space latch for new keypress
+            Ref(SignalBulb, System.Windows.Shapes.Shape.FillProperty, "Signal");
+            SignalGlow.Radius = 24;
+            SignalStatusText.Text = "KEY DOWN";
+            Ref(SignalStatusText, TextBlock.ForegroundProperty, "OnSignal");
+            _audioEngine.StartTone();
+            KeyScope.Begin();
+        }
+
+        private void TriggerSpaceKeyUp()
+        {
+            if (!_isKeyPressed)
+                return;
+
+            _isKeyPressed = false;
+            _pressTimer.Stop();
+            _audioEngine.StopTone();
+            Ref(SignalBulb, System.Windows.Shapes.Shape.FillProperty, "Raised");
+            SignalGlow.Radius = 0;
+            SignalStatusText.Text = "KEY UP";
+            Ref(SignalStatusText, TextBlock.ForegroundProperty, "Muted");
+            ulong durationUs = (ulong)(_pressTimer.Elapsed.TotalMilliseconds * 1000);
+            DurationMetric.Text = $"{_pressTimer.ElapsedMilliseconds} ms";
+            ulong startCycles = Morse_GetBenchmarkCycles();
+            uint token = Morse_QuantizePress(durationUs, _unitUs);
+            ulong elapsedCycles = Morse_GetBenchmarkCycles() - startCycles;
+            LatencyMetric.Text = $"{elapsedCycles} cycles";
+            KeyScope.End((int)token);
+            KeyReadout.Text = $"LAST {_pressTimer.ElapsedMilliseconds} ms  \u2192  {TokenName((int)token)}   \u00B7   1 unit = {_unitUs / 1000.0:0} ms";
+
+            if (token == 1) // Dit (0)
+            {
+                TokenMetric.Text = "DIT (•)";
+                _patternMask = (byte)((_patternMask << 1) | 0);
+                _elementCount++;
+                CurrentTokenBuffer.Text += "• ";
+            }
+            else if (token == 2) // Dah (1)
+            {
+                TokenMetric.Text = "DAH (─)";
+                _patternMask = (byte)((_patternMask << 1) | 1);
+                _elementCount++;
+                CurrentTokenBuffer.Text += "─ ";
+            }
+            _idleTimer.Restart();
+        }
+
         #region Hardware Key Event Processing
         protected override void OnPreviewKeyDown(KeyEventArgs e)
         {
@@ -1022,18 +1132,9 @@ namespace MorseApp
                     return;
                 }
                 e.Handled = true;
-                if (!e.IsRepeat && !_isKeyPressed)
+                if (!e.IsRepeat)
                 {
-                    _isKeyPressed = true;
-                    _idleTimer.Stop();
-                    _pressTimer.Restart();
-                    _spaceCommittedForPause = false; // Reset space latch for new keypress
-                    Ref(SignalBulb, System.Windows.Shapes.Shape.FillProperty, "Signal");
-                    SignalGlow.Radius = 24;
-                    SignalStatusText.Text = "KEY DOWN";
-                    Ref(SignalStatusText, TextBlock.ForegroundProperty, "OnSignal");
-                    _audioEngine.StartTone();
-                    KeyScope.Begin();
+                    TriggerSpaceKeyDown();
                 }
                 return;
             }
@@ -1054,41 +1155,7 @@ namespace MorseApp
                     return;
                 }
                 e.Handled = true;
-                if (_isKeyPressed)
-                {
-                    _isKeyPressed = false;
-                    _pressTimer.Stop();
-                    _audioEngine.StopTone();
-                    Ref(SignalBulb, System.Windows.Shapes.Shape.FillProperty, "Raised");
-                    SignalGlow.Radius = 0;
-                    SignalStatusText.Text = "KEY UP";
-                    Ref(SignalStatusText, TextBlock.ForegroundProperty, "Muted");
-                    ulong durationUs = (ulong)(_pressTimer.Elapsed.TotalMilliseconds * 1000);
-                    DurationMetric.Text = $"{_pressTimer.ElapsedMilliseconds} ms";
-                    // Native MASM quantizer call with RDTSC cycle telemetry
-                    ulong startCycles = Morse_GetBenchmarkCycles();
-                    uint token = Morse_QuantizePress(durationUs, _unitUs);
-                    ulong elapsedCycles = Morse_GetBenchmarkCycles() - startCycles;
-                    LatencyMetric.Text = $"{elapsedCycles} cycles";
-                    KeyScope.End((int)token);
-                    KeyReadout.Text = $"LAST {_pressTimer.ElapsedMilliseconds} ms  \u2192  {TokenName((int)token)}   \u00B7   1 unit = {_unitUs / 1000.0:0} ms";
-
-                    if (token == 1) // Dit (0)
-                    {
-                        TokenMetric.Text = "DIT (•)";
-                        _patternMask = (byte)((_patternMask << 1) | 0);
-                        _elementCount++;
-                        CurrentTokenBuffer.Text += "• ";
-                    }
-                    else if (token == 2) // Dah (1)
-                    {
-                        TokenMetric.Text = "DAH (─)";
-                        _patternMask = (byte)((_patternMask << 1) | 1);
-                        _elementCount++;
-                        CurrentTokenBuffer.Text += "─ ";
-                    }
-                    _idleTimer.Restart();
-                }
+                TriggerSpaceKeyUp();
                 return;
             }
             base.OnPreviewKeyUp(e);

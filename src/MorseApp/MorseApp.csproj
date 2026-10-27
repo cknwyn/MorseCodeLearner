@@ -10,10 +10,15 @@
     <ApplicationTitle>Morse Code Learner (Assistive x64)</ApplicationTitle>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
     <None Include="..\MorseCore\bin\x64\$(Configuration)\MorseCore.dll" Condition="Exists('..\MorseCore\bin\x64\$(Configuration)\MorseCore.dll')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>MorseCore.dll</Link>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.IO.Ports" />
   </ItemGroup>
   <Target Name="BuildNativeCore" BeforeTargets="BeforeBuild">
     <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\MorseCore\build-native.ps1&quot; -Configuration $(Configuration)" />
